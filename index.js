@@ -61,7 +61,6 @@ exports.startSubscribe = (req, res) => {
               const curr = new Date(Date.now());
               const updateTimeStr = event.data.profile[0].last_update_time;
               const updateTime = Date.parse(updateTimeStr);
-              console.log(updateTime);
               const diff = (curr - updateTime) / 1000;
               responses.push({
                 value: name,
@@ -79,7 +78,8 @@ exports.startSubscribe = (req, res) => {
                 if (retry) {
                   console.log(`L83: this is a ${retry} retry of the insert...`);
                 } else {
-                  console.log('L85: inserting log...');
+                    console.log('L85: inserting log...');
+                    console.log(responses);
                 }
                 query({
                   query: `mutation ($log: json!) {

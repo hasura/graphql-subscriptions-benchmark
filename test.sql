@@ -12,6 +12,18 @@ select
   log#>'{9,time}' as u9
   from logs;
 
+CREATE OR REPLACE FUNCTION public.update_time()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    NEW.last_update_time = now();
+    RETURN NEW;
+END;
+$function$;
+
+CREATE TRIGGER update_last_time BEFORE UPDATE ON profile FOR EACH ROW EXECUTE PROCEDURE  update_time();
+
 CREATE OR REPLACE VIEW public."response_times" AS
  SELECT logs.id,
     (logs.log #>> '{0,diff}')::float AS u0,
