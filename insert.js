@@ -1,16 +1,3 @@
-var start = process.hrtime();
-
-var elapsed_time = function(note) {
-    var precision = 3; // 3 decimal places
-    var elapsed = process.hrtime(start)[1] / 1000000; // divide by a million to get nano to milli
-    console.log(process.hrtime(start)[0] + " s, " + elapsed.toFixed(precision) + " ms - " + note); // print message + time
-    var elapsedS = (process.hrtime(start)[0] * 1000 + elapsed);
-
-    start = process.hrtime(); // reset the timer
-
-    return elapsedS;
-}
-
 var query = require('graphqurl').query;
 var url = 'https://lambda-hge-test.herokuapp.com/v1alpha1/graphql';
 
@@ -21,9 +8,9 @@ var mutation = `
     }
   }`;
 
-var sleep = require('sleep');
 let i=2;
 function mutate() {
+  // run 9 queries
   if (i < 11) {
     query({ query: mutation, endpoint: url, variables: {name: 'user'+i.toString()} })
       .then(
@@ -37,7 +24,7 @@ function mutate() {
   }
   else {
     console.log('we\'re done here.');
-    // Reset user
+    // Reset user - run 1 query
     query({ query: mutation, endpoint: url, variables: {name: 'user1'} })
       .then(
         (data) => {

@@ -14,5 +14,10 @@
     "request": "^2.87.0",
     "shelljs": "^0.8.2",
     "sleep": "^5.2.3"
+  },
+  "devDependencies": {
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb-base": "^13.0.0",
+    "eslint-plugin-import": "^2.13.0"
   }
 }
