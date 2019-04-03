@@ -1,0 +1,30 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "noImplicitAny": true,
+        "outDir": "./dist",
+        "allowSyntheticDefaultImports": true,
+        "removeComments": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "pretty": true,
+        "declaration": true,
+        "skipLibCheck": true,
+        "lib": ["es6", "esnext.asynciterable"],
+        "types": [
+        "node"
+        ]
+    },
+    "files": [
+        "subscriptions.ts",
+        "index.ts",
+        "config.ts",
+        "schema.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
