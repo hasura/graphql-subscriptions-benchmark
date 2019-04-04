@@ -1,5 +1,5 @@
 import { OperationOptions } from './subscriptions';
-import { resolve } from 'url';
+import { safeLoad } from 'js-yaml';
 
 interface range {
     start: number;
@@ -31,7 +31,7 @@ export class Config {
     public async readFile(): Promise<boolean> {
         return new Promise((resolve, reject) => {
             this.read().then((data: any) => {
-                this.data = JSON.parse(data);
+                this.data = safeLoad(data);
                 resolve(true); 
             },
             (err: Error) => {
