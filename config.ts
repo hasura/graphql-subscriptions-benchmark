@@ -14,6 +14,7 @@ interface template {
 
 interface configData {
     query: string;
+    timePeriod?: number;
     variables?: Object;
     headers?: Object;
     template?: template;
@@ -61,6 +62,18 @@ export class Config {
         }
 
         return finalConnections;
+    }
+
+    public getNumberOfConnectionEvery10thSecond(operations: OperationOptions[]): number {
+        if (Array.isArray(this.data)) {
+            return null;
+        } else {
+            const data = <configData>this.data;
+            if (!data.timePeriod) {
+                return null;
+            }
+            return (operations.length/data.timePeriod) * 10;
+        }
     }
 
     private generate(operation: configData): OperationOptions[] {

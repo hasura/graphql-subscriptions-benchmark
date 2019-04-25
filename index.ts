@@ -2,12 +2,17 @@ import { Client, ConnectionParams } from './subscriptions';
 import { Config } from './config';
 import { OperationOptions } from './subscriptions';
 import { Events, knexConnection } from './schema';
+import { create } from 'domain';
 
 let client : { [key:string]:Client; } = {};
 
 let connectionParams: OperationOptions[];
 
 let connections: any[] = [];
+
+let timeoutObject: any;
+
+let timeoutAttempt: number = 0;
 
 interface eventData {
     connection_id: number;
@@ -40,13 +45,14 @@ function subscribe(connectionId: any) {
     )
 }
 
-function createClients(endpoint: string, operations: OperationOptions[]) {
+function createClients(endpoint: string, operations: OperationOptions[], startValue: number) {
     for (var _i=1; _i <= operations.length; _i++) {
-        const id = _i.toString();
+        const id = (_i + startValue).toString();
         client[id] = new Client(endpoint, {
         connectionId: id,
         connectionCallback: (err, connectionId) => {
             if (!err) {
+                console.log(`Creating Connection ${id}`);
                 subscribe(connectionId);
             } else {
                 console.log(err);
@@ -56,6 +62,15 @@ function createClients(endpoint: string, operations: OperationOptions[]) {
             headers: operations[_i-1]["headers"]
         }
     });
+    }
+}
+
+function distributeClients(endpoint: string, operations: OperationOptions[]) {
+    timeoutAttempt = timeoutAttempt + 1;
+    console.log(`Timeout Attempt at ${timeoutAttempt}`);
+    let tmpOperations = operations.slice((timeoutAttempt * 100) - 99, (timeoutAttempt * 100));
+    if (tmpOperations.length !== 0) {
+        createClients(endpoint, tmpOperations, (timeoutAttempt * 100) - 100)
     }
 }
 
@@ -77,7 +92,12 @@ function main() {
     config.readFile().then(
         (success) => {
             connections = config.getOperations();
-            createClients(endpoint, connections);
+            const connectionLimit = config.getNumberOfConnectionEvery10thSecond(connections);
+            if (connectionLimit) {
+                timeoutObject = setInterval(distributeClients, 10000, endpoint, connections);
+            } else {
+                createClients(endpoint, connections, 0);
+            }
         },
         (err: Error) =>  {
             console.log(err);
@@ -101,6 +121,7 @@ const close = () => {
 }
 
 process.on('SIGINT', function() {
+    clearInterval(timeoutObject);
     insertData().then(
         (data: any) => {
             close();

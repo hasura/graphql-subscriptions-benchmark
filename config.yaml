@@ -1,14 +1,13 @@
 query: 'subscription($id: Int) { test(where: {id: {_eq: $id}}) { id name } }'
+timePeriod: 60
 variables:
   id: '1'
 headers:
-  X-Hasura-User-Id: '1'
-  X-Hasura-Role: user
+  X-Hasura-Role: admin
 template:
   range:
     start: 1
-    end: 5
-  headers:
-  - X-Hasura-User-Id
+    end: 600
+  headers: []
   variables:
   - id
