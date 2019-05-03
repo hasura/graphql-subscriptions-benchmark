@@ -1,30 +1,38 @@
-const Knex = require('knex');
+import Knex = require('knex');
+import { Model } from 'objection';
 const connection = require('../knexfile');
-export const { Model } = require('objection');
-
 export const knexConnection = Knex(connection);
 Model.knex(knexConnection);
 
 export class Events extends Model {
-    static get tableName () {
-        return 'events';
-    }
+    label: string;
+    connection_id: number;
+    operation_id: number;
+    event_number: number;
+    event_data: any;
+    event_time: string;
+    is_error: boolean;
+    latency?: number;
+    
+    static tableName = 'events';
 
     static get idColumn() {
-        return 'id';
+        return ['label', 'connection_id', 'operation_id', 'event_number']
     }
 
     static get jsonSchema () {
         return {
             type: 'object',
-            required: ['connection_id', 'event_number', 'event_data', 'event_time'],
+            required: ['label', 'connection_id', 'operation_id', 'event_number', 'event_data', 'event_time', 'is_error'],
             properties: {
-                id: {type: 'integer'},
+                label: {type: 'string'},
                 connection_id: {type: 'integer'},
+                operation_id: {type: 'integer'},
                 event_number: {type: 'integer'},
-                event_data: {type: 'string', minLength: 1, maxLength: 255},
-                is_valid: {type: 'boolean'},
-                event_time: {type: 'decimal'}
+                event_data: {type: 'json'},
+                event_time: {type: 'string'},
+                is_error: {type: 'boolean'},
+                latency: {type: ['integer', 'null']},
             }
         }
     }

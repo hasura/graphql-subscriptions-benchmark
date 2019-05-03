@@ -64,7 +64,7 @@ export class Config {
         return finalConnections;
     }
 
-    public getNumberOfConnectionEvery10thSecond(operations: OperationOptions[]): number {
+    public getNumberOfConnectionPerSecond(operations: OperationOptions[]): number {
         if (Array.isArray(this.data)) {
             return null;
         } else {
@@ -72,7 +72,7 @@ export class Config {
             if (!data.timePeriod) {
                 return null;
             }
-            return (operations.length/data.timePeriod) * 10;
+            return Math.floor((operations.length/data.timePeriod));
         }
     }
 

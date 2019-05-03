@@ -95,24 +95,25 @@ export class Client {
 
     public subscribe(
         request: OperationOptions[],
-        observerOrNext: (v: ExecutionResult, opID?: string, eventId?: number) => void,
-        onError?: (error: Error) => void,
+        observerOrNext: (v: ExecutionResult, opID: number, eventId: number, eventTime: string) => void,
+        onError?: (error: Error, opID: number, eventId: number, eventTime: string) => void,
         onComplete?: () => void
     ) {
         for (let operation of request) {
             let opId: string;
             opId = this.executeOperation(operation, (error: Error[], result: any) => {
+                const eventTime = new Date().toISOString();
                 if ( error === null && result === null ) {
                     if ( onComplete ) {
                         onComplete();
                     }
                 } else if (error) {
                     if (onError) {
-                        onError(error[0]);
+                        onError(error[0], parseInt(opId), this.events[opId], eventTime);
                     }
                 } else {
                     if (observerOrNext) {
-                        observerOrNext(result, opId, this.events[opId]);
+                        observerOrNext(result, parseInt(opId), this.events[opId], eventTime);
                     }
                 }
             });
@@ -188,11 +189,11 @@ export class Client {
         }
 
         this.client.onclose = () => {
-            console.log('closed');
+            // do nothing
         };
 
         this.client.onerror = (err: Error) => {
-            console.log(err);
+            this.connectionCallback(err);
         }
 
         this.client.onmessage = ({ data }: {data: any}) => {
@@ -250,6 +251,7 @@ export class Client {
                 break;
             
             case 'error':
+                ++this.events[opId];
                 this.operations[opId].handler(this.formatErrors(parsedMessage.payload), null);
                 delete this.operations[opId];
                 delete this.events[opId];

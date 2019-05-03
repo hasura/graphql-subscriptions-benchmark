@@ -1,13 +1,16 @@
 exports.up = function(knex, Promise) {
     return knex.schema.createTable('events', (table) => {
-        table.increments();
+
+        table.string('label').notNullable();
         table.integer('connection_id').notNullable();
         table.integer('operation_id').notNullable();
         table.integer('event_number').notNullable();
-        table.string('event_data').notNullable();
-        table.decimal('event_time').notNullable();
+        table.jsonb('event_data').notNullable();
+        table.timestamp('event_time', { useTz: true }).notNullable();
+        table.boolean('is_error').notNullable();
+        table.integer('latency');
 
-        table.unique(['connection_id', 'operation_id', 'event_number']) 
+        table.unique(['label','connection_id', 'operation_id', 'event_number'])
     });
 }
 

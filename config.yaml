@@ -1,5 +1,11 @@
-query: 'subscription($id: Int) { test(where: {id: {_eq: $id}}) { id name } }'
-timePeriod: 60
+query: |
+  subscription ($id: Int!) {
+    test(where: {id: {_eq: $id}}) {
+      id
+      name
+    }
+  }
+timePeriod: 10
 variables:
   id: '1'
 headers:
@@ -7,7 +13,7 @@ headers:
 template:
   range:
     start: 1
-    end: 600
+    end: 1000
   headers: []
   variables:
-  - id
+    - id
