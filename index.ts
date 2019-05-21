@@ -3,9 +3,6 @@ import { Config } from './config';
 import { OperationOptions } from './subscriptions';
 import { Events, knexConnection } from './schema';
 
-import * as readline from 'readline';
-import { raw } from 'objection';
-
 let client : { [key:string]:Client; } = {};
 
 let connections: any[] = [];
@@ -104,7 +101,16 @@ function closeClients() {
     }
 }
 
-function main() {
+async function assertDatabaseConnection() {
+    return knexConnection.raw('select 1+1 as result')
+        .catch((err: any) => {
+            console.log('Failed to establish connection to database! Exiting...');
+            console.log(err);
+            process.exit(1);
+        });
+}
+
+async function init() {
     if (typeof(process.env.PG_CONNECTION_STRING) === 'undefined') {
         console.error('ENV PG_CONNECTION_STRING is not set');
         return;
@@ -127,9 +133,10 @@ function main() {
     }
     console.log(`Endpoint is ${endpoint}`);
     console.log(`Label is ${label}`);
+    await assertDatabaseConnection();
     const config = new Config(configFilePath);
     config.readFile().then(
-        (success) => {
+        () => {
             connections = config.getOperations();
             const connectionLimit = config.getNumberOfConnectionPerSecond(connections);
             if (connectionLimit) {
@@ -144,25 +151,9 @@ function main() {
     );
 }
 
-async function getEvents() {
-    const rows = await Events.query()
-        .columns('event_number')
-        .where('label', label)
-        .orderBy('event_number')
-        .groupBy('event_number')
-    return rows;
-};
+;
 
 
-async function setLatency(datetime: string, event_number: number ) {
-    await Events.query()
-        .patch({
-            latency: raw(`EXTRACT(epoch FROM(event_time - '${datetime}')) * 1000`),
-        })
-        .where('label', label)
-        .where('event_number', event_number);
-    return 'test';
-}
 
 const insertData = (): Promise<any> => {
     return new Promise(function (resolve, reject) {
@@ -170,33 +161,7 @@ const insertData = (): Promise<any> => {
                     .allowInsert('[connection_id, event_number, event_data, event_time]')
                     .insertGraph(eventDatas).then((result: any)=> {
                         console.log(`Inserted total of ${result.length} events for label ${label}`);
-                        getEvents().then(
-                            (rows: any) => {
-                                const filteredEvents = rows.filter((event: { event_number: number; }) => event.event_number !== 1);
-                                if (filteredEvents.length === 0) {
-                                    resolve(result);
-                                }
-                                let totalAnswers = 0;
-                                filteredEvents.forEach((event: { event_number: number; }) => {
-                                    let rl = readline.createInterface({
-                                        input: process.stdin,
-                                        output: process.stdout
-                                    });
-                                    rl.question(`Time at which event number ${event.event_number} is executed: `, async (answer) => {
-                                        const date = new Date(answer);
-                                        ++totalAnswers;
-                                        rl.close();
-                                        await setLatency(date.toISOString(), event.event_number);
-                                        if (totalAnswers === filteredEvents.length) {
-                                            resolve(result);
-                                        }
-                                    });
-                                });
-                            },
-                            (err: Error) => {
-                                reject(err);
-                            }
-                        )
+                        resolve(result);
                     }).catch((err: Error) => reject(err));
     });
 };
@@ -205,7 +170,7 @@ function exit() {
     clearInterval(timeoutObject);
     closeClients();
     insertData().then(
-        (data: any) => {
+        () => {
             knexConnection.destroy();
         },
         (err: Error) => {
@@ -220,4 +185,4 @@ process.on('SIGINT', function() {
     exit();
 });
 
-main();
+init();

@@ -1,6 +1,6 @@
 import Knex = require('knex');
 import { Model } from 'objection';
-const connection = require('../knexfile');
+export const connection = require('../knexfile');
 export const knexConnection = Knex(connection);
 Model.knex(knexConnection);
 

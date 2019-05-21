@@ -5,15 +5,15 @@ query: |
       name
     }
   }
-timePeriod: 10
+timePeriod: 2
 variables:
   id: '1'
 headers:
-  X-Hasura-Role: admin
+  X-Hasura-Admin-Secret: ""
 template:
   range:
     start: 1
-    end: 1000
+    end: 10
   headers: []
   variables:
     - id
