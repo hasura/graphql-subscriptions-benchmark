@@ -24,7 +24,6 @@ module.exports = {
                     listening = false;
                 } else {
                     conn.on('notification', (msg) => {
-                        console.log("Got " + msg.channel + " payload " + msg.payload);
                         if (process.pid) {
                             console.log('This process is your pid ' + process.pid);
                             process.kill(process.pid, "SIGINT");

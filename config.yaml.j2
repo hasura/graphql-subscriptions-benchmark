@@ -3,16 +3,17 @@ query: |
     test(where: {id: {_eq: $id}}) {
       id
       name
+      updated_at
     }
   }
-timePeriod: 2
+timePeriod: {{ time_period }}
 variables:
   id: '1'
 headers: []
 template:
   range:
-    start: 1
-    end: 10
+    start: {{ start }}
+    end: {{ end }}
   headers: []
   variables:
     - id

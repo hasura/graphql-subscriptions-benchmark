@@ -1,0 +1,184 @@
+---
+-
+    name: Provision an EC2 Instance
+    hosts: local
+    connection: local
+    gather_facts: False
+    tags: provisioning
+    # Necessary Variables for creating/provisioning the EC2 Instance
+    vars:
+        instance_type: c5d.xlarge
+        security_group: "" # Change the security group name here
+        image: ami-0a313d6098716f372 # Change the AMI, from which you want to launch the server
+        region: "" # Change the Region
+        keypair: "<SSH_KEYPAIR_NAME>" # Change the keypair name
+        count: 1 # update the number of ec2 instances
+        iam_role: "<IAM_ROLE>" # change the IAM role name
+
+    # Task that will be used to Launch/Create an EC2 Instance
+    tasks:
+        - 
+            name: Launch the new EC2 Instance
+            ec2:
+                key_name: "{{ keypair }}"
+                group: "{{ security_group}}"
+                instance_type: "{{ instance_type}}"
+                image: "{{ image }}"
+                wait: true
+                region: "{{ region }}"
+                count: "{{ count }}"
+                instance_profile_name: "{{ iam_role }}"
+                vpc_subnet_id: subnet-be2da8da
+                assign_public_ip: yes
+            register: ec2
+
+        - 
+            name: Add new instance to host group
+            add_host: hostname={{ item.public_ip }} groupname=benchmarkserver
+            with_items: '{{ec2.instances}}'
+
+
+        - 
+            name: Wait for SSH to come up
+            local_action: wait_for 
+                            host={{ item.public_ip }} 
+                            port=22 
+                            state=started
+            with_items: "{{ ec2.instances }}"
+
+-
+   name: Configure instances
+   hosts: benchmarkserver
+   user: ubuntu
+   gather_facts: no
+   vars:
+    home_folder: /home/ubuntu
+    nvm_tmp_path: /tmp/install_nvm
+    nvm_version: "v0.34.0"
+    nvm_install_checksum: "sha256:ef7ad1db40c92f348c0461f24983b71ba0ea7d45d4007a36e484270fa7f81fcf"
+    nvm_home: "{{ home_folder }}"
+    nvm_dir: "{{ nvm_home }}/.nvm"
+    nvm_node_versions:
+    - "8.9.1"
+    nvm_node_version: "8.9.1"
+    nvm_shell_profile_scripts:
+    - .bashrc
+   pre_tasks:
+   -
+      name: install python
+      raw: sudo apt install -y python
+   tasks:
+    - name: Ensure NVM installation temp path exists
+      file:
+        path: "{{ nvm_tmp_path }}"
+        state: directory
+    - name: Download NVM installation script
+      get_url:
+        dest: "{{ nvm_tmp_path }}"
+        url: https://raw.githubusercontent.com/creationix/nvm/{{ nvm_version }}/install.sh
+        checksum: "{{ nvm_install_checksum }}"
+    - name: Set installation script permissions
+      file:
+        path: "{{ nvm_tmp_path }}/install.sh"
+        mode: 0755
+    - name: Run NVM installation script
+      command: "bash {{ nvm_tmp_path }}/install.sh"
+      args:
+        chdir: "{{ nvm_tmp_path }}"
+      changed_when: True
+    - name: Delete NVM installation temp
+      file:
+        path: "{{ nvm_tmp_path }}"
+        state: absent
+    - name: Find shell profile scripts
+      stat:
+        path: "{{ nvm_home }}/{{ item }}"
+      with_items: "{{ nvm_shell_profile_scripts }}"
+      register: nvm_shell_profile_st
+    - name: Set NVM_DIR in shell profiles
+      lineinfile:
+        dest: "{{ nvm_home }}/{{ item.item }}"
+        line: 'export NVM_DIR="$HOME/.nvm"'
+        regexp: '^export NVM_DIR='
+      with_items: "{{ nvm_shell_profile_st.results }}"
+      when: item.stat.exists
+    - name: Source nvm.sh in shell profiles
+      lineinfile:
+        dest: "{{ nvm_home }}/{{ item.item }}"
+        line: '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm'
+        insertafter: '^export NVM_DIR='
+        regexp: "/nvm.sh"
+      with_items: "{{ nvm_shell_profile_st.results }}"
+      when: item.stat.exists
+    - name: Install default Node.js versions with NVM
+      environment:
+        NVM_DIR: "{{ nvm_dir }}"
+      shell: "source {{ nvm_dir }}/nvm.sh && nvm install {{ item }} && npm update -g npm"
+      args:
+        executable: /bin/bash
+      with_items: "{{ nvm_node_versions }}"
+      register: nvm_install_result
+      changed_when: "nvm_install_result.stdout is search('Downloading and installing node')"
+    - name: Clone git repo
+      shell: git clone git@github.com:hasura/subscription-benchmark.git
+      args:
+        chdir: "{{ home_folder }}"
+        creates: "{{ home_folder }}/subscription-benchmark"
+    - name: Insall forever
+      environment:
+        NVM_DIR: "{{ nvm_dir }}"
+      shell: "source {{ nvm_dir }}/nvm.sh && npm install -g forever"
+      args:
+        chdir: "{{ home_folder }}"
+        executable: /bin/bash
+    - name: Installing NPM packages
+      environment:
+        NVM_DIR: "{{ nvm_dir }}"
+      shell: "source {{ nvm_dir }}/nvm.sh && npm ci"
+      args:
+        chdir: "{{ home_folder }}/subscription-benchmark"
+        executable: /bin/bash
+    - name: Compile
+      environment:
+        NVM_DIR: "{{ nvm_dir }}"
+      shell: "source {{ nvm_dir }}/nvm.sh && npm run compile"
+      args:
+        chdir: "{{ home_folder }}/subscription-benchmark"
+        executable: /bin/bash
+    - name: Generate config
+      template:
+        src: ../config.yaml.j2
+        dest: "{{ home_folder }}/subscription-benchmark/config-prod.yaml"
+      vars:
+        max_connection: 10000 # update the number of connections to be made
+        time_period: 60
+        current_index: "{{groups.benchmarkserver.index(inventory_hostname) | int}}"
+        start: "{{ ((((current_index | int + 1) * max_connection | int) - max_connection | int) + 1) | int}}"
+        end: "{{ ((current_index | int + 1) * max_connection | int) | int }}"
+-
+  name: Run benchmarks 
+  hosts: benchmarkserver
+  user: ubuntu
+  gather_facts: no
+  serial: 1
+  vars:
+    home_folder: /home/ubuntu
+    nvm_home: "{{ home_folder }}"
+    nvm_dir: "{{ nvm_home }}/.nvm"
+    label_prefix: "<LABEL>" # update the label prefix to be used
+  tasks:
+  -
+    name: Start benchmark
+    environment:
+      NVM_DIR: "{{ nvm_dir }}"
+      CONFIG_FILE_PATH: ../config-prod.yaml
+      PG_CONNECTION_STRING: "<PG_URL>" # update the postgres connection URL
+      ENDPOINT: "" # Update the graphql endpoint url
+      LABEL: "{{ label_prefix }}-{{groups.benchmarkserver.index(inventory_hostname) | int}}"
+    shell: "source {{ nvm_dir }}/nvm.sh && forever start -m 1 index.js"
+    args:
+      chdir: "{{ home_folder }}/subscription-benchmark/dist"
+      executable: /bin/bash
+  - 
+    pause:
+      seconds: 60
