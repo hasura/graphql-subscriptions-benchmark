@@ -128,7 +128,7 @@ async function init() {
     }
     configFilePath = process.env.CONFIG_FILE_PATH;
     if (typeof(configFilePath) === 'undefined' || configFilePath === '') {
-        console.error('ENV ENDPOINT is not set');
+        console.error('ENV CONFIG_FILE_PATH is not set');
         return;
     }
     console.log(`Endpoint is ${endpoint}`);
